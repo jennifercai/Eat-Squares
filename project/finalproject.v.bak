@@ -1,0 +1,469 @@
+// Part 2 skeleton
+
+module bounce
+	(
+		CLOCK_50,						//	On Board 50 MHz
+		KEY,
+		SW,
+		// The ports below are for the VGA output.  Do not change.
+		VGA_CLK,   						//	VGA Clock
+		VGA_HS,							//	VGA H_SYNC
+		VGA_VS,							//	VGA V_SYNC
+		VGA_BLANK_N,						//	VGA BLANK
+		VGA_SYNC_N,						//	VGA SYNC
+		VGA_R,   						//	VGA Red[9:0]
+		VGA_G,	 						//	VGA Green[9:0]
+		VGA_B   						//	VGA Blue[9:0]
+	);
+
+	input				CLOCK_50;				//	50 MHz
+	input 	[9:0] SW;
+	input 	[3:0] KEY;
+	// Do not change the following outputs
+	output			VGA_CLK;   				//	VGA Clock
+	output			VGA_HS;					//	VGA H_SYNC
+	output			VGA_VS;					//	VGA V_SYNC
+	output			VGA_BLANK_N;				//	VGA BLANK
+	output			VGA_SYNC_N;				//	VGA SYNC
+	output	[9:0]	VGA_R;   				//	VGA Red[9:0]
+	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
+	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
+	
+	wire resetn;
+	assign resetn = !KEY[0];
+	
+	// Create the colour, x, y and writeEn wires that are inputs to the controller.
+
+	wire [2:0] colour;
+
+
+	wire [7:0] x;
+	wire [6:0] y;
+
+	wire writeEn; //plot basically, based off of key 1
+	
+
+	
+	// Create an Instance of a VGA controller - there can be only one!
+	// Define the number of colours as well as the initial background
+	// image file (.MIF) for the controller.
+	vga_adapter VGA(
+			.resetn(!resetn),
+			.clock(CLOCK_50),
+			.colour(colour),
+			.x(x),
+			.y(y),
+			.plot(writeEn),
+			/* Signals for the DAC to drive the monitor. */
+			.VGA_R(VGA_R),
+			.VGA_G(VGA_G),
+			.VGA_B(VGA_B),
+			.VGA_HS(VGA_HS),
+			.VGA_VS(VGA_VS),
+			.VGA_BLANK(VGA_BLANK_N),
+			.VGA_SYNC(VGA_SYNC_N),
+			.VGA_CLK(VGA_CLK));
+		defparam VGA.RESOLUTION = "160x120";
+		defparam VGA.MONOCHROME = "FALSE";
+		defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+		defparam VGA.BACKGROUND_IMAGE = "black.mif";
+			
+	// Put your code here. Your code should produce signals x,y,colour and writeEn
+	// for the VGA controller, in addition to any other functionality your design may require.
+	
+	
+	part2 p2 (
+	
+	.clk (CLOCK_50),
+	.reset (resetn), //key 0
+	
+	.color (SW[9:7]),
+	
+	.plot_out (writeEn),
+
+
+
+	.x_out (x),
+	.y_out (y),
+	.color_out (colour)
+
+	
+	
+	
+	);
+	
+	
+endmodule
+
+
+module part2 (
+	input clk,
+	input reset,
+	input [2:0] color,
+
+	
+	output plot_out,
+	output [7:0] x_out,
+	output [6:0] y_out,
+	output [2:0] color_out
+	
+);
+	
+	wire ld_draw, ld_erase, ld_h, ld_v,ld_reset,ld_start;
+	
+	control c0(
+	.clk (clk),
+	.reset (reset), //key 0
+	
+	.ld_draw (ld_draw),
+	.ld_erase (ld_erase),
+	.ld_h (ld_h),
+	.ld_v (ld_v),
+	.ld_reset(ld_reset),
+	.ld_start (ld_start),
+	.plot_out (plot_out)// goes to vga
+	);
+	
+	
+	
+	
+	
+	datapath d0 (
+	.clk (clk),
+	.color (color),
+	.ld_draw (ld_draw),
+	.ld_erase (ld_erase),
+	.ld_h (ld_h),
+	.ld_v (ld_v),
+	.reset(ld_reset),
+	.start (ld_start),
+	.x_out (x_out),
+	.y_out (y_out),
+	.color_out (color_out));
+	
+	
+	
+
+	
+	
+
+endmodule
+
+
+
+
+module control (
+	input clk,
+	input reset, //key 0
+
+	output reg ld_draw, //goes to datapath
+	output reg ld_erase, //goes to datapath
+	output reg ld_h,
+	output reg ld_v,
+	output reg ld_reset,
+	output reg plot_out,
+	output reg ld_start//goes to vga
+);
+
+	 reg [5:0] current_state, next_state; 
+	 reg [23:0] count; //reset <- 0
+	 reg reset_en;
+	// reg reset_en;
+	 initial begin
+		count = 0;
+	
+	 end
+	 
+	 
+	 
+	 
+	 
+	 //initial count = 0;
+	 localparam  S_START			= 5'd0,
+					 S_DRAW        = 5'd1,
+					 S_ERASE   		= 5'd2,
+					 S_UPDATE      = 5'd3,
+					 S_RESET			= 5'd4;
+	 
+	 // Next state logic aka our state table
+	 
+	 always @ (posedge clk) begin
+			
+			if (count == 24'd12500001)
+			count <=0;
+			else if (reset)begin
+			count <= 24'd12500000-24'd16;
+			end
+			else
+			count <= count + 1;
+	 end
+	 
+	 always@(*)
+	 begin: state_table 
+				case (current_state)
+					 	
+					 S_START: next_state = S_DRAW;
+					 S_DRAW: next_state = (count == 24'd12500000-24'd16) ? S_ERASE: S_DRAW;
+					 
+					 S_ERASE: next_state = (count == 24'd12500000) ? (reset_en ? S_RESET : S_UPDATE): S_ERASE;
+
+					 S_UPDATE: next_state = S_DRAW;
+
+					 
+				default:     next_state = S_START;
+		  endcase
+	 end // state_table
+
+	 
+	 
+	 
+	 
+	 // Output logic aka all of our datapath control signals
+	 always @(*)
+	 begin: enable_signals
+		  // By default make all our signals 0
+		  ld_draw = 1'b0;
+		  ld_erase = 1'b0;
+		  ld_h = 1'b0;
+		  ld_v = 1'b0;
+		  plot_out = 1'b0;
+		  ld_start = 1'b0;
+		//  reset_en = 1'b0;
+		  ld_reset = 1'b0;
+		  case (current_state)
+				S_START: begin
+					ld_start = 1'b1;
+					end
+				S_DRAW: begin
+					 ld_draw = 1'b1;
+					 plot_out = 1'b1;
+					 end
+				S_ERASE: begin
+					 ld_erase = 1'b1;
+					 plot_out = 1'b1;
+					 end
+				S_UPDATE: begin
+					 ld_h = 1'b1;
+					 ld_v = 1'b1;
+				end
+				S_RESET: begin
+					ld_reset = 1'b1;
+				end
+
+		  // default:    // don't need default since we already made sure all of our outputs were assigned a value at the start of the always block
+		  endcase
+	 end // enable_signals
+	
+	
+	always @ (*) begin
+		if (reset) 
+			reset_en = 1'b1;
+		
+		if (current_state == S_RESET)
+			reset_en = 1'b0;
+	end
+	
+	
+	 always@(posedge clk)
+	 begin: state_FFs
+		  if(reset) begin
+				current_state <= S_ERASE;
+				end
+		  else
+				current_state <= next_state;
+	 end 	 
+	 
+	 
+endmodule
+
+
+module datapath (
+	input clk,
+	input reset,
+	input [2:0] color,
+	input ld_draw, ld_erase, ld_h,ld_v, start,
+	
+	output reg [7:0] x_out,
+	output reg [6:0] y_out,
+	output reg [2:0] color_out
+);	
+	
+	reg [7:0] x_count;
+	reg [6:0] y_count;
+	
+	reg [7:0] x_prev_out;
+	reg [6:0] y_prev_out;
+	
+	reg h,v;
+	reg shiftoutx,shiftouty;
+	reg [15:0] b16x,b16y;
+	 
+	 
+	 
+	 
+	/*initial begin
+		x_count=0;
+		y_count=0;
+
+		h=0;
+		v=0;
+	
+		b16x = 16'b 0001010010101101;
+		b16y = 16'b 0111111110101101;
+	end*/
+	
+	
+	always @ (*)begin
+		shiftoutx = b16x[0] ^ b16x[15];
+		shiftouty = b16y[0] ^ b16y[15];
+	end
+	
+	
+	always@(posedge clk) begin
+		  
+		  if (start)begin
+				
+				b16x <= {shiftoutx , b16x[15:1]};
+				b16y <= {shiftouty , b16y[15:1]};
+				if (b16x[7:0]>154) //once we start changing the size, it will be 160-size-2 eg. for screen 160 & size 4,
+				//it needs to be greater than 154 before subtracting
+				//so 155 -> 160 inclusive
+				//bc if its at 155, the square will reach 159, don't want it to be right on the boundary
+					x_prev_out <= b16x[7:0]-154;
+				else 
+					x_prev_out <= b16x[7:0];
+					
+					
+				if (b16y[6:0]>114) //once we start changing the size, it will be 120-size-2
+					y_prev_out <= b16y[6:0]-114;
+				else
+					y_prev_out <= b16y[6:0];
+				
+		  end
+		
+		  
+			if (reset)
+					begin
+					x_out <= 8'b0; 
+					y_out <= 7'b0;
+					color_out <= 3'b0;
+					x_count <= 8'b0;
+					y_count <= 7'b0;
+					x_prev_out <= 8'b0;
+					y_prev_out <= 7'b0;
+					h <=0;
+					v <=0;
+					b16x <= 16'b 0001010010101101;
+					b16y <= 16'b 0111111110101101;
+					end
+
+
+		  if(ld_draw) begin
+		  
+		  
+				color_out <= color;
+				
+				if (x_count <8'd4 && y_count<7'd4) begin 
+				
+				x_out<=x_prev_out + x_count;
+				y_out<=y_prev_out + y_count;
+				end
+				else begin
+				x_out <= x_prev_out;
+				y_out <= y_prev_out;
+				x_count <= 0;
+				y_count <=0;
+				end
+				
+				
+				x_count <= x_count + 1;
+				if (x_count > 8'd2) begin
+					x_count <= 8'b0;
+					y_count <= y_count + 1;
+				end	
+				
+				
+				
+				
+				
+					
+			end	 
+				
+				//prev out is initially 0, then it increments
+				
+			if (ld_erase) begin
+				color_out <= 3'b000;
+				//if reset, reset the counts & prev stuffs. & clear
+				
+				
+				if (x_count <8'd4 && y_count<7'd4) begin 
+				
+				x_out<=x_prev_out + x_count;
+				y_out<=y_prev_out + y_count;
+				end
+				else begin
+					x_out <= x_prev_out;
+					y_out <= y_prev_out;
+					x_count <= 0;
+					y_count <=0;
+					
+				end
+				
+				
+				x_count <= x_count + 1;
+				if (x_count > 8'd2) begin
+					x_count <= 8'b0;
+					y_count <= y_count + 1;
+				end
+				
+				
+				
+				
+			end
+			
+			
+			
+			
+			if (ld_h) begin
+				
+				if (h) //h = 1
+				x_prev_out <= x_prev_out - 1;
+				else //h = 0
+				x_prev_out <= x_prev_out + 1;
+			
+			
+				if (x_prev_out == 155)
+					h <= 1;
+				if (x_prev_out == 1)
+					h <= 0;
+			end
+			
+			
+			
+			
+			
+			if (ld_v) begin
+				x_count <= 8'b0;
+				y_count <= 7'b0;
+				
+				if (v) //v = 1
+				y_prev_out <= y_prev_out - 1;
+				else //v = 0
+				y_prev_out <= y_prev_out + 1;
+			
+			
+				if (y_prev_out == 115)
+					v <= 1;
+				if (y_prev_out == 1)
+					v <= 0;
+			end
+			
+			
+			
+			
+	 end
+	
+
+endmodule
+
+

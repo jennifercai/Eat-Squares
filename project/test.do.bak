@@ -1,0 +1,63 @@
+vlib work
+
+
+
+
+vlog finalproject.v
+
+#vlog vga_adapter/*.v
+
+
+
+
+#vsim -L altera_mf_ver part2
+
+
+
+
+vsim part2
+
+
+
+
+log -r {/*}
+
+
+
+
+add wave {/*}
+
+
+
+
+force {clk} 0 0, 1 1ns -r 2ns
+
+
+
+
+force {color} 10#7
+
+force {reset} 1
+
+run 2ns
+
+
+
+
+
+
+
+
+
+
+force {color} 10#7
+
+
+
+
+force {reset} 0
+
+
+
+
+run 20000ns
