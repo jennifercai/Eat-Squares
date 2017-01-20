@@ -1,4 +1,4 @@
-# Verilog-Agario
+# Eat Squares
 Created by Jennifer Cai & Elena Huang
 
 A game made using Verilog and DE1-SOC.
